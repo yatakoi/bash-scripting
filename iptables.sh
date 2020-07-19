@@ -2,17 +2,17 @@
 
 #********************************************************************
 # Переменные
-FTPCON="20:21"			# Команды FTP
+FTPCON="20:21"			  # Команды FTP
 FTPDATA="49152:65535"	# Данные FTP
 
 # IP адреса
-ALIASWEB="ip_address"	# IP адрес интерфейса, на котором будут сайты
+ALIASWEB="ip_address"	#       IP адрес интерфейса, на котором будут сайты
 #ALIASDNS="ip_address"				# 2-ой IP адрес для второго DNS
 #ALIASLAN="ip_address"				# IP в локалке (если есть)
-ALIASLOOP="127.0.0.1"		# IP loopback (замыкание на себя)
+ALIASLOOP="127.0.0.1"		      # IP loopback (замыкание на себя)
 
 # Интерфейсы
-INTWEB="eth0"	# Название интерфейса с "белым" IP
+INTWEB="eth0"	    # Название интерфейса с "белым" IP
 #INTDNS="ethX"		# Интефейс для DNS2
 #INTLAN="ethY"		# Интерфейс локальной сети (если есть)
 #********************************************************************
@@ -99,20 +99,20 @@ iptables -A INPUT -s $ALIASWEB -d $ALIASWEB -j ACCEPT
 iptables -A INPUT -i $INTWEB -p tcp --dport 22 -j ACCEPT			# Разрешаем SSH (настоятельно рекомендую сменить порт, например, на 7777)
 iptables -A INPUT -i $INTWEB -p tcp --dport 80 -j ACCEPT			# Разрешаем HTTP
 iptables -A INPUT -i $INTWEB -p tcp --dport 443 -j ACCEPT			# Разрешаем HTTPS
-iptables -A INPUT -i $INTWEB -p udp --dport 53 -j ACCEPT			# Разрешаем DNS
-iptables -A INPUT -i $INTWEB -p tcp --dport 53 -j ACCEPT			# Разрешаем DNS
-#iptables -A INPUT -i $INTDNS -p udp --dport 53 -j ACCEPT 			# Разрешаем DNS
-iptables -A INPUT -i $INTWEB -p tcp --dport 1500 -j ACCEPT  		# Разрешаем ISPmanager
-iptables -A INPUT -i $INTWEB -p tcp --dport 110 -j ACCEPT			# Разрешаем POP3
-iptables -A INPUT -i $INTWEB -p tcp --dport 993 -j ACCEPT			# Разрешаем POP3s/IMAPs
-iptables -A INPUT -i $INTWEB -p tcp --dport 25 -j ACCEPT			# Разрешаем SMTP
-iptables -A INPUT -i $INTWEB -p tcp --dport 465 -j ACCEPT			# Разрешаем SMTPs
-iptables -A INPUT -i $INTWEB -p tcp --dport 587 -j ACCEPT			# Разрешаем SMTP MSA
-iptables -A INPUT -i $INTWEB -p tcp --dport 143 -j ACCEPT			# Разрешаем IMAP
+iptables -A INPUT -i $INTWEB -p udp --dport 53 -j ACCEPT		    	# Разрешаем DNS
+iptables -A INPUT -i $INTWEB -p tcp --dport 53 -j ACCEPT		    	# Разрешаем DNS
+#iptables -A INPUT -i $INTDNS -p udp --dport 53 -j ACCEPT 	    	# Разрешаем DNS
+iptables -A INPUT -i $INTWEB -p tcp --dport 1500 -j ACCEPT      	# Разрешаем ISPmanager
+iptables -A INPUT -i $INTWEB -p tcp --dport 110 -j ACCEPT		    	# Разрешаем POP3
+iptables -A INPUT -i $INTWEB -p tcp --dport 993 -j ACCEPT		    	# Разрешаем POP3s/IMAPs
+iptables -A INPUT -i $INTWEB -p tcp --dport 25 -j ACCEPT		    	# Разрешаем SMTP
+iptables -A INPUT -i $INTWEB -p tcp --dport 465 -j ACCEPT			    # Разрешаем SMTPs
+iptables -A INPUT -i $INTWEB -p tcp --dport 587 -j ACCEPT			    # Разрешаем SMTP MSA
+iptables -A INPUT -i $INTWEB -p tcp --dport 143 -j ACCEPT			    # Разрешаем IMAP
 iptables -A INPUT -i $INTWEB -p tcp --dport $FTPDATA -j ACCEPT		# Разрешаем FTP Data
-iptables -A INPUT -i $INTWEB -p tcp --dport $FTPCON -j ACCEPT		# Разрешаем FTP
-iptables -A INPUT -i $INTWEB -p tcp --dport 3306 -j ACCEPT			# Разрешаем MariaDB
-iptables -A INPUT -i $INTWEB -p tcp --dport 5432 -j ACCEPT			# Разрешаем PostgreSQL
+iptables -A INPUT -i $INTWEB -p tcp --dport $FTPCON -j ACCEPT		  # Разрешаем FTP
+iptables -A INPUT -i $INTWEB -p tcp --dport 3306 -j ACCEPT			  # Разрешаем MariaDB
+iptables -A INPUT -i $INTWEB -p tcp --dport 5432 -j ACCEPT			  # Разрешаем PostgreSQL
 #********************************************************************
 
 # Разрешаем входящие для loopback
@@ -132,24 +132,24 @@ iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # Разрешаем наружу разные протоколы:
 # Разрешаем наружу разные протоколы:
-iptables -A OUTPUT -p tcp --dport 22 -j ACCEPT			# Разрешаем SSH
-iptables -A OUTPUT -p tcp --dport 7777 -j ACCEPT		# Разрешаем SSH для служебного использования
-iptables -A OUTPUT -p tcp --dport 80 -j ACCEPT			# Разрешаем HTTP
-iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT			# Разрешаем HTTPS
-iptables -A OUTPUT -p udp --dport 53 -j ACCEPT			# Разрешаем DNS
-iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT			# Разрешаем DNS
-#iptables -A OUTPUT -p udp --dport 53 -j ACCEPT 		# Разрешаем DNS
+iptables -A OUTPUT -p tcp --dport 22 -j ACCEPT		  	# Разрешаем SSH
+iptables -A OUTPUT -p tcp --dport 7777 -j ACCEPT	  	# Разрешаем SSH для служебного использования
+iptables -A OUTPUT -p tcp --dport 80 -j ACCEPT		  	# Разрешаем HTTP
+iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT		  	# Разрешаем HTTPS
+iptables -A OUTPUT -p udp --dport 53 -j ACCEPT		  	# Разрешаем DNS
+iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT		  	# Разрешаем DNS
+#iptables -A OUTPUT -p udp --dport 53 -j ACCEPT 	  	# Разрешаем DNS
 iptables -A OUTPUT -p tcp --dport 1500 -j ACCEPT  		# Разрешаем ISPmanager
-iptables -A OUTPUT -p tcp --dport 110 -j ACCEPT			# Разрешаем POP3
-iptables -A OUTPUT -p tcp --dport 993 -j ACCEPT			# Разрешаем POP3s/IMAPs
-iptables -A OUTPUT -p tcp --dport 25 -j ACCEPT			# Разрешаем SMTP
-iptables -A OUTPUT -p tcp --dport 465 -j ACCEPT			# Разрешаем SMTPs
-iptables -A OUTPUT -p tcp --dport 587 -j ACCEPT			# Разрешаем SMTP MSA
-iptables -A OUTPUT -p tcp --dport 143 -j ACCEPT			# Разрешаем IMAP
+iptables -A OUTPUT -p tcp --dport 110 -j ACCEPT		  	# Разрешаем POP3
+iptables -A OUTPUT -p tcp --dport 993 -j ACCEPT		  	# Разрешаем POP3s/IMAPs
+iptables -A OUTPUT -p tcp --dport 25 -j ACCEPT	  		# Разрешаем SMTP
+iptables -A OUTPUT -p tcp --dport 465 -j ACCEPT	  		# Разрешаем SMTPs
+iptables -A OUTPUT -p tcp --dport 587 -j ACCEPT	  		# Разрешаем SMTP MSA
+iptables -A OUTPUT -p tcp --dport 143 -j ACCEPT		  	# Разрешаем IMAP
 iptables -A OUTPUT -p tcp --dport $FTPDATA -j ACCEPT	# Разрешаем FTP Data
 iptables -A OUTPUT -p tcp --dport $FTPCON -j ACCEPT		# Разрешаем FTP
-iptables -A OUTPUT -p tcp --dport 3306 -j ACCEPT		# Разрешаем MariaDB
-iptables -A OUTPUT -p tcp --dport 5432 -j ACCEPT		# Разрешаем PostgreSQL
+iptables -A OUTPUT -p tcp --dport 3306 -j ACCEPT	  	# Разрешаем MariaDB
+iptables -A OUTPUT -p tcp --dport 5432 -j ACCEPT	  	# Разрешаем PostgreSQL
 
 # Разрешаем пинг
 iptables -A OUTPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
