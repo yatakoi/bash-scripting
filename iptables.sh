@@ -2,31 +2,28 @@
 
 #********************************************************************
 # Переменные
-FTPCON="20:21" # Команды FTP
-FTPDATA="49152:65535" # Данные FTP
+FTPCON="20:21"			# Команды FTP
+FTPDATA="49152:65535"	# Данные FTP
 
 # IP адреса
-HOME="" # Admin's Home
-ALIASWEB="159.69.214.219" # IP адрес интерфейса, на котором будут висеть сайты
-#ALIASDNS="" # 2-ой IP адрес, чтобы нормально работал DNS
-#ALIASLAN="" # IP в локалке (если есть)
-ALIASLOOP="127.0.0.1" # IP LoopBack (замыкание на себя)
+ALIASWEB="ip_address"	# IP адрес интерфейса, на котором будут сайты
+#ALIASDNS="ip_address"				# 2-ой IP адрес для второго DNS
+#ALIASLAN="ip_address"				# IP в локалке (если есть)
+ALIASLOOP="127.0.0.1"		# IP loopback (замыкание на себя)
 
 # Интерфейсы
-INTWEB="eth0" # Название интерфейса, на котором будут висеть сайты
-#INTDNS="" # Интефейс для DNS2
-#INTLAN="" # Интерфейс локальной сети (если есть)
+INTWEB="eth0"	# Название интерфейса с "белым" IP
+#INTDNS="ethX"		# Интефейс для DNS2
+#INTLAN="ethY"		# Интерфейс локальной сети (если есть)
 #********************************************************************
 
-export IPT="iptables"
-
 #Очистка всех фепочек iptables
-$IPT -F
-$IPT -F -t nat
-$IPT -F -t mangle
-$IPT -X
-$IPT -t nat -X
-$IPT -t mangle -X
+iptables -F
+iptables -F -t nat
+iptables -F -t mangle
+iptables -X
+iptables -t nat -X
+iptables -t mangle -X
 
 #********************************************************************
 # Защита от спуфинга (подмена адреса отправителя)
@@ -34,151 +31,137 @@ echo 1 > /proc/sys/net/ipv4/conf/all/rp_filter
 echo 1 > /proc/sys/net/ipv4/conf/default/rp_filter
 
 # Разрешаем исходящий трафик и запрещаем весь входящий и транзитный
-$IPT -P INPUT DROP
-$IPT -P OUTPUT ACCEPT
-$IPT -P FORWARD DROP
+iptables -P INPUT DROP
+iptables -P OUTPUT ACCEPT
+iptables -P FORWARD DROP
+
+###################################################НАЧАЛО ПРАВИЛА ДЛЯ ВХОДЯЩИХ##################################
 
 # Разрешаем уже инициированные соединения, а также дочерние от них
-$IPT -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 #Отбрасываем все пакеты, которые не могут быть идентифицированы
 #и поэтому не могут иметь определенного статуса.
-$IPT -A INPUT -m state --state INVALID -j DROP
+iptables -A INPUT -m state --state INVALID -j DROP
+iptables -A FORWARD -m state --state INVALID -j DROP
+iptables -A OUTPUT -m state --state INVALID -j DROP
 
-# Запрет FIN-сканирования
-#$IPT -A INPUT -p tcp -m tcp --tcp-flags FIN,ACK FIN -j DROP
 
-# Запрет X-сканирования
-#$IPT -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP
-
-# Запрет N-сканирования
-#$IPT -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP
-
-#
-$IPT -A INPUT -p ALL -m state --state ESTABLISHED,RELATED -j ACCEPT # Дропаем битые пакеты, которые идут на вшнешний мир, если когда-нибуть будет NAT
-$IPT -A INPUT -p tcp --tcp-flags SYN,ACK SYN,ACK -m state --state NEW -j REJECT
-
-#********************************************************************
-# Цепочка syn-flood для обнаружения DDOS-атак
-#$IPT -t mangle -N syn-flood
-## Ограничение в 24 коннекта в сек., максимально разрешщено - 48
-#$IPT -t mangle -A syn-flood -m limit --limit 24/s --limit-burst 48 -j RETURN
-#$IPT -t mangle -A syn-flood \
-    -m limit --limit 10/s  --limit-burst 10 -j LOG \
-    --log-prefix "IPT: DDOS (dropped): "
-#$IPT -t mangle -A syn-flood -j DROP
-#********************************************************************
-
-#********************************************************************
-# Цепочка hack_scan для защиты от NMAP-сканирования
-# Единственное от чего нет защиты, так это от "правильного сканирования", попытке реально подцепиться к порту
-# т.е. от nmap -sS (Scan: SYN+ACK), а потом мониторить при помощи root-tail
-#$IPT -t filter -N hack_scan
-## nmap -sS (Скан: SYN+ACK = нет защиты... )
-## nmap -sX (Скан: SYN+ACK+FIN+RST [+PSH+URG] = не реализовано в TCP)
-#$IPT -t filter -A hack_scan -p tcp -m state ! --state ESTABLISHED \
-#    --tcp-flags SYN,ACK,FIN,RST ALL  \
-#    -j LOG --log-prefix "IPT: Scan: SYN+ACK+FIN+RST: " \
-#    -m limit --limit 10/minute --limit-burst 10
-
-#$IPT -t filter -A hack_scan -p tcp -m state ! --state ESTABLISHED \
-#    --tcp-flags SYN,ACK,FIN,RST ALL  \
-#    -j REJECT --reject-with tcp-reset
-
-## nmap -sN (Скан: ни один из флагов = не реализовано в TCP)
-#$IPT -t filter -A hack_scan -p tcp -m state ! --state ESTABLISHED \
-#    --tcp-flags SYN,ACK,FIN,RST NONE \
-#    -m limit --limit 10/minute --limit-burst 10 \
-#    -j LOG --log-prefix "IPT: Scan: empty flags: "
-#$IPT -t filter -A hack_scan -p tcp -m state ! --state ESTABLISHED \
-#    --tcp-flags SYN,ACK,FIN,RST NONE \
-#    -j REJECT --reject-with tcp-reset
-
-## nmap -sF (Скан: только FIN)
-#$IPT -t filter -A hack_scan -p tcp -m state ! --state ESTABLISHED \
-#    --tcp-flags SYN,ACK,FIN,RST FIN \
-#    -m limit --limit 10/minute --limit-burst 10 \
-#    -j LOG --log-prefix "IPT: Scan: only FIN: "
-#$IPT -t filter -A hack_scan -p tcp -m state ! --state ESTABLISHED \
-#    --tcp-flags SYN,ACK,FIN,RST FIN \
-#    -j REJECT --reject-with tcp-reset
-
-## NEW, не SYN
-#$IPT -t filter -A hack_scan -p tcp ! --syn -m state --state NEW \
-#    -m limit --limit 10/minute --limit-burst 10 \
-#    -j LOG --log-prefix "IPT: NEW not SYN (rejected): "
-#$IPT -t filter -A hack_scan -p tcp ! --syn -m state --state NEW \
-#    -j REJECT --reject-with tcp-reset
-#********************************************************************=
-
-#********************************************************************
-# Защита ssh от перебора паролей
-#$IPT -N FAILLOG
-#$IPT -A FAILLOG -j LOG --log-prefix "iptables blocked: " --log-level 7
-#$IPT -A FAILLOG -j DROP
-#$IPT -A INPUT -p tcp -m tcp --dport 22 -m state --state NEW -m recent --update --seconds 60 --hitcount 3 --name DEFAULT --rsource -j FAILLOG
-#********************************************************************
+### DROP спуфинг пакетов
+iptables -A INPUT -s 10.0.0.0/8 -j DROP
+iptables -A INPUT -s 169.254.0.0/16 -j DROP
+iptables -A INPUT -s 172.16.0.0/12 -j DROP
+iptables -A INPUT -s 127.0.0.0/8 -j DROP
+iptables -A INPUT -s 192.168.0.0/24 -j DROP
+iptables -A INPUT -s 224.0.0.0/4 -j DROP
+iptables -A INPUT -d 224.0.0.0/4 -j DROP
+iptables -A INPUT -s 240.0.0.0/5 -j DROP
+iptables -A INPUT -d 240.0.0.0/5 -j DROP
+iptables -A INPUT -s 0.0.0.0/8 -j DROP
+iptables -A INPUT -d 0.0.0.0/8 -j DROP
+iptables -A INPUT -d 239.255.255.0/24 -j DROP
+iptables -A INPUT -d 255.255.255.255 -j DROP
 
 # flooding of RST packets, smurf attack Rejection
 iptables -A INPUT -p tcp -m tcp --tcp-flags RST RST -m limit --limit 2/second --limit-burst 2 -j ACCEPT
 
-# Protecting portscans
-# Attacking IP will be locked for 24 hours (3600 x 24 = 86400 Seconds)
+# flooding of RST packets, smurf attack Rejection
+iptables -A INPUT -p tcp -m tcp --tcp-flags RST RST -m limit --limit 2/second --limit-burst 2 -j ACCEPT
+
+#********************************************************************
+# Защита от сканирования
+# IP атакующего будет залочен на 24 часа (3600 x 24 = 86400 сек.)
 iptables -A INPUT -m recent --name portscan --rcheck --seconds 86400 -j DROP
 iptables -A FORWARD -m recent --name portscan --rcheck --seconds 86400 -j DROP
 
-# Remove attacking IP after 24 hours
+# Удалить IP атакующего через 24 часа
 iptables -A INPUT -m recent --name portscan --remove
 iptables -A FORWARD -m recent --name portscan --remove
 
-# These rules add scanners to the portscan list, and log the attempt.
+# Добавление сканирующего в список portscan, уведомление об этом в консоли(не SSH) и запись в лог
 iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "portscan:"
 iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
 
 iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "portscan:"
 iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
+#********************************************************************
 
 #********************************************************************
 # Разрешаем все для себя
-$IPT -A INPUT -s $ALIASLOOP -d $ALIASLOOP -j ACCEPT
-$IPT -A INPUT -s $ALIASWEB -d $ALIASWEB -j ACCEPT
-#$IPT -A INPUT -s $ALIASLAN -d $ALIASLAN -j ACCEPT
-#$IPT -A INPUT -s $ALIASDNS -d $ALIASDNS -j ACCEPT
-#
-#$IPT -A INPUT -p icmp --icmp-type 8 -m limit --limit 10/s --limit-burst 20 -j ACCEPT	# ICMP
-#$IPT -A INPUT -p icmp --icmp-type 11 -m limit --limit 10/s --limit-burst 20 -j ACCEPT	# ICMP
+iptables -A INPUT -s $ALIASLOOP -d $ALIASLOOP -j ACCEPT
+iptables -A INPUT -s $ALIASWEB -d $ALIASWEB -j ACCEPT
+#iptables -A INPUT -s $ALIASLAN -d $ALIASLAN -j ACCEPT
+#iptables -A INPUT -s $ALIASDNS -d $ALIASDNS -j ACCEPT
 #********************************************************************
 
 #********************************************************************
 # Разрешаем разные протоколы:
-$IPT -A INPUT -i $INTWEB -p tcp --dport 22 -j ACCEPT			# Разрешаем SSH
-$IPT -A INPUT -i $INTWEB -p tcp --dport 80 -j ACCEPT			# Разрешаем HTTP
-$IPT -A INPUT -i $INTWEB -p tcp --dport 443 -j ACCEPT			# Разрешаем HTTPS
-$IPT -A INPUT -i $INTWEB -p udp --dport 53 -j ACCEPT			# Разрешаем DNS
-#$IPT -A INPUT -i $INTDNS -p udp --dport 53 -j ACCEPT 			# Разрешаем DNS
-$IPT -A INPUT -i $INTWEB -p tcp --dport 1500 -j ACCEPT  		# Разрешаем ISPmanager
-$IPT -A INPUT -i $INTWEB -p tcp --dport 110 -j ACCEPT			# Разрешаем POP3
-$IPT -A INPUT -i $INTWEB -p tcp --dport 993 -j ACCEPT			# Разрешаем POP3s/IMAPs
-$IPT -A INPUT -i $INTWEB -p tcp --dport 25 -j ACCEPT			# Разрешаем SMTP
-$IPT -A INPUT -i $INTWEB -p tcp --dport 465 -j ACCEPT			# Разрешаем SMTPs
-$IPT -A INPUT -i $INTWEB -p tcp --dport 143 -j ACCEPT			# Разрешаем IMAP
-$IPT -A INPUT -i $INTWEB -p tcp --dport $FTPDATA -j ACCEPT		# Разрешаем FTP Data
-$IPT -A INPUT -i $INTWEB -p tcp --dport $FTPCON -j ACCEPT		# Разрешаем FTP
+iptables -A INPUT -i $INTWEB -p tcp --dport 22 -j ACCEPT			# Разрешаем SSH (настоятельно рекомендую сменить порт, например, на 7777)
+iptables -A INPUT -i $INTWEB -p tcp --dport 80 -j ACCEPT			# Разрешаем HTTP
+iptables -A INPUT -i $INTWEB -p tcp --dport 443 -j ACCEPT			# Разрешаем HTTPS
+iptables -A INPUT -i $INTWEB -p udp --dport 53 -j ACCEPT			# Разрешаем DNS
+iptables -A INPUT -i $INTWEB -p tcp --dport 53 -j ACCEPT			# Разрешаем DNS
+#iptables -A INPUT -i $INTDNS -p udp --dport 53 -j ACCEPT 			# Разрешаем DNS
+iptables -A INPUT -i $INTWEB -p tcp --dport 1500 -j ACCEPT  		# Разрешаем ISPmanager
+iptables -A INPUT -i $INTWEB -p tcp --dport 110 -j ACCEPT			# Разрешаем POP3
+iptables -A INPUT -i $INTWEB -p tcp --dport 993 -j ACCEPT			# Разрешаем POP3s/IMAPs
+iptables -A INPUT -i $INTWEB -p tcp --dport 25 -j ACCEPT			# Разрешаем SMTP
+iptables -A INPUT -i $INTWEB -p tcp --dport 465 -j ACCEPT			# Разрешаем SMTPs
+iptables -A INPUT -i $INTWEB -p tcp --dport 587 -j ACCEPT			# Разрешаем SMTP MSA
+iptables -A INPUT -i $INTWEB -p tcp --dport 143 -j ACCEPT			# Разрешаем IMAP
+iptables -A INPUT -i $INTWEB -p tcp --dport $FTPDATA -j ACCEPT		# Разрешаем FTP Data
+iptables -A INPUT -i $INTWEB -p tcp --dport $FTPCON -j ACCEPT		# Разрешаем FTP
+iptables -A INPUT -i $INTWEB -p tcp --dport 3306 -j ACCEPT			# Разрешаем MariaDB
+iptables -A INPUT -i $INTWEB -p tcp --dport 5432 -j ACCEPT			# Разрешаем PostgreSQL
+#********************************************************************
 
-
-# local loopback:
-$IPT -A INPUT -i lo -j ACCEPT
-
-# Разрешаем ping:
-$IPT -A INPUT -p icmp --icmp-type destination-unreachable -j DROP
-$IPT -A INPUT -p icmp --icmp-type source-quench -j DROP
-$IPT -A INPUT -p icmp --icmp-type time-exceeded -j DROP
+# Разрешаем входящие для loopback
+iptables -A INPUT -i lo -j ACCEPT
 
 # Блокируем все остальное
-$IPT -A INPUT -j DROP
+iptables -A INPUT -j REJECT
 
-#Вывод информации о состоянии таблиц
+################################################### КОНЕЦ ПРАВИЛА ДЛЯ ВХОДЯЩИХ ##################################
+
+
+################################################### ПРАВИЛА ДЛЯ ИСХОДЯЩИХ ###################################################
+
+# Разрешаем исходящие для loopback
+iptables -A OUTPUT -o lo -j ACCEPT
+iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Разрешаем наружу разные протоколы:
+# Разрешаем наружу разные протоколы:
+iptables -A OUTPUT -p tcp --dport 22 -j ACCEPT			# Разрешаем SSH
+iptables -A OUTPUT -p tcp --dport 7777 -j ACCEPT		# Разрешаем SSH для служебного использования
+iptables -A OUTPUT -p tcp --dport 80 -j ACCEPT			# Разрешаем HTTP
+iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT			# Разрешаем HTTPS
+iptables -A OUTPUT -p udp --dport 53 -j ACCEPT			# Разрешаем DNS
+iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT			# Разрешаем DNS
+#iptables -A OUTPUT -p udp --dport 53 -j ACCEPT 		# Разрешаем DNS
+iptables -A OUTPUT -p tcp --dport 1500 -j ACCEPT  		# Разрешаем ISPmanager
+iptables -A OUTPUT -p tcp --dport 110 -j ACCEPT			# Разрешаем POP3
+iptables -A OUTPUT -p tcp --dport 993 -j ACCEPT			# Разрешаем POP3s/IMAPs
+iptables -A OUTPUT -p tcp --dport 25 -j ACCEPT			# Разрешаем SMTP
+iptables -A OUTPUT -p tcp --dport 465 -j ACCEPT			# Разрешаем SMTPs
+iptables -A OUTPUT -p tcp --dport 587 -j ACCEPT			# Разрешаем SMTP MSA
+iptables -A OUTPUT -p tcp --dport 143 -j ACCEPT			# Разрешаем IMAP
+iptables -A OUTPUT -p tcp --dport $FTPDATA -j ACCEPT	# Разрешаем FTP Data
+iptables -A OUTPUT -p tcp --dport $FTPCON -j ACCEPT		# Разрешаем FTP
+iptables -A OUTPUT -p tcp --dport 3306 -j ACCEPT		# Разрешаем MariaDB
+iptables -A OUTPUT -p tcp --dport 5432 -j ACCEPT		# Разрешаем PostgreSQL
+
+# Разрешаем пинг
+iptables -A OUTPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
+
+# Блокируем все остальное
+iptables -A OUTPUT -j REJECT
+
+################################################### КОНЕЦ ПРАВИЛА ДЛЯ ИСХОДЯЩИХ ###################################################
+
+# REJECT forward-трафика
+iptables -A FORWARD -j REJECT
+
+# Вывод информации о состоянии таблиц
 #route -n
-#$IPT -L
-$IPT -L -v -n
-#$IPT -L -v -n -t nat
+#iptables -L -v -n
